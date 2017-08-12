@@ -11,8 +11,11 @@ NK = N/K; % Number of examples per fold
 index = randperm(N);
 data = data_raw(index,:);
 
-%for k=1:K
-k=1
+total_correct_sum = 0;
+
+it_correct_vec = [];
+
+for k=1:K
   test_start_index = (k-1)*NK + 1;
   test_end_index = (test_start_index+NK) - 1;
 
@@ -31,31 +34,39 @@ k=1
   class_2_features = class_2_data(:,1:D);
   class_3_features = class_3_data(:,1:D);
 
-  class_1_mean = sum(class_1_features)/length(class_1_features);
-  class_2_mean = sum(class_2_features)/length(class_2_features);
-  class_3_mean = sum(class_3_features)/length(class_3_features);
+  u1 = (sum(class_1_features)/length(class_1_features)).';
+  u2 = (sum(class_2_features)/length(class_2_features)).';
+  u3 = (sum(class_3_features)/length(class_3_features)).';
 
   % for some reason the covmle fn wants the mean as a col vec, so transposed
-  class_1_cov = covmle(class_1_features, class_1_mean.');
-  class_2_cov = covmle(class_2_features, class_2_mean.');
-  class_3_cov = covmle(class_3_features, class_3_mean.');
+  cov1 = covmle(class_1_features, u1);
+  cov2 = covmle(class_2_features, u2);
+  cov3 = covmle(class_3_features, u3);
+
+  it_correct_sum = 0;
 
   for i=1:NK
     x = test_data(i,1:D);
-    y = test_data(i,D+1);
+    class = test_data(i,D+1);
 
-    c1_xm = x-class_1_mean;
-    c1_g = -0.5 * c1_xm * class_1_cov * c1_xm.';
+    xm1 = x.' - u1;
+    g1 = -0.5 * xm1.' * inv(cov1) * xm1;
 
-    c2_xm = x-class_2_mean;
-    c2_g = -0.5 * c2_xm * class_2_cov * c2_xm.';
+    xm2 = x.' - u2;
+    g2 = -0.5 * xm2.' * inv(cov2) * xm2;
 
-    c3_xm = x-class_3_mean;
-    c3_g = -0.5 * c3_xm * class_3_cov * c3_xm.';
+    xm3 = x.' - u3;
+    g3 = -0.5 * xm3.' * inv(cov3) * xm3;
 
+    [_,predicted_class] = max([g1, g2, g3]);
 
-    disp([c1_g, c2_g, c3_g, y]);
+    if predicted_class == class
+      it_correct_sum += 1;
+      total_correct_sum += 1;
+    end
   end
+
+  it_correct_vec = vertcat(it_correct_vec, it_correct_sum/NK);
 
   % disp(train_data);
 
@@ -72,7 +83,11 @@ k=1
   % You can use MATLAB inv function for matrix inversion
   % Predicted class label is the largest of g1, g2, g3
   % Check predicted label against the given label in the test data set
-%end
+end
+
+disp(it_correct_vec);
+disp(total_correct_sum/N);
+
 % Evaluate classification accuracy
 %   Accuracy per iteration = no of correct classification / 15
 %   Average accuracy for all 10-fold CV
